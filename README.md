@@ -4,6 +4,8 @@
 
 **🧹 Effortlessly clear heavy temp folders — safely, fast, and with full control.**
 
+<img src="https://raw.githubusercontent.com/aaurelions/clearrr/refs/heads/main/screenshot.png">
+
 ---
 
 ## ✨ What is clearrr?
@@ -109,14 +111,14 @@ npx clearrr . --patterns="node_modules,dist,build,.cache" --confirm
 
 ## 🛠️ Options
 
-| Option       | Description                            | Default       |
-| ------------ | -------------------------------------- | ------------- |
-| `[dir]`      | Root folder to scan                    | `.` (current) |
-| `--preset`   | `node`, `python`, `php`, `rust`, or `all`             | `all`         |
-| `--patterns` | Override preset with custom comma-list | —             |
-| `--dry-run`  | Explicit dry-run                       | `true`        |
-| `--confirm`  | Actually delete matched folders        | `false`       |
-| `--[no-]recursive` | Enable/disable recursive search | `true` |
+| Option             | Description                               | Default       |
+| ------------------ | ----------------------------------------- | ------------- |
+| `[dir]`            | Root folder to scan                       | `.` (current) |
+| `--preset`         | `node`, `python`, `php`, `rust`, or `all` | `all`         |
+| `--patterns`       | Override preset with custom comma-list    | —             |
+| `--dry-run`        | Explicit dry-run                          | `true`        |
+| `--confirm`        | Actually delete matched folders           | `false`       |
+| `--[no-]recursive` | Enable/disable recursive search           | `true`        |
 
 ---
 
