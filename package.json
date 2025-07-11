@@ -1,0 +1,32 @@
+{
+  "name": "clearrr",
+  "version": "1.0.0",
+  "description": "Effortlessly clear heavy temp folders — safely, fast, and with full control.",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "clearrr": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cli",
+    "clean",
+    "node_modules",
+    "cache",
+    "dist",
+    "build",
+    "vendor",
+    "target"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "fast-glob": "^3.3.3",
+    "get-folder-size": "^5.0.0",
+    "yargs": "^18.0.0"
+  }
+}
