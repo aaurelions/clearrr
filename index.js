@@ -2,7 +2,7 @@
 
 import chalk from "chalk";
 import fg from "fast-glob";
-import { rmdirSync } from "fs";
+import { rmSync } from "fs";
 import getFolderSize from "get-folder-size";
 import { resolve } from "path";
 import { hideBin } from "yargs/helpers";
@@ -134,7 +134,7 @@ async function main() {
         );
       } else {
         console.log(chalk.red(`Deleting: ${entry} (${formatBytes(size)})`));
-        rmdirSync(entry, { recursive: true });
+        rmSync(entry, { recursive: true });
       }
     } catch (err) {
       console.error(chalk.red(`Error processing ${entry}: ${err.message}`));
