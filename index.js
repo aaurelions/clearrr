@@ -111,9 +111,18 @@ async function main() {
     followSymbolicLinks: false,
   });
 
+  // Sort by path length to ensure parents are processed first, then filter out children
+  const sortedEntries = entries.sort((a, b) => a.length - b.length);
+  const uniqueEntries = [];
+  for (const entry of sortedEntries) {
+    if (!uniqueEntries.some(parent => entry.startsWith(parent + '/'))) {
+      uniqueEntries.push(entry);
+    }
+  }
+
   let totalSize = 0;
 
-  for (const entry of entries) {
+  for (const entry of uniqueEntries) {
     try {
       const size = await getFolderSize.loose(entry);
       totalSize += size;
