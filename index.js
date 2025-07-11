@@ -106,8 +106,9 @@ async function main() {
     cwd: dir,
     onlyDirectories: true,
     deep: Infinity,
-    ignore: ["**/node_modules/.bin/**", "**/.git/**", "**/.Trash/**"],
+    ignore: ["**/node_modules/.bin/**", "**/.git/**"],
     absolute: true,
+    followSymbolicLinks: false,
   });
 
   let totalSize = 0;
