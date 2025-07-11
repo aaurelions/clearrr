@@ -106,7 +106,7 @@ async function main() {
     cwd: dir,
     onlyDirectories: true,
     deep: Infinity,
-    ignore: ["**/node_modules/.bin/**", "**/.git/**"],
+    ignore: ["**/node_modules/.bin/**", "**/.git/**", "**/.Trash/**"],
     absolute: true,
   });
 
