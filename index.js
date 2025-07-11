@@ -78,17 +78,27 @@ const argv = yargs(hideBin(process.argv))
     type: "boolean",
     default: false,
   })
+  .option("recursive", {
+    describe: "Enable recursive search",
+    type: "boolean",
+    default: true,
+  })
   .help().argv;
 
 async function main() {
   const dir = resolve(process.cwd(), argv.dir);
-  const patterns = argv.patterns
+  const basePatterns = argv.patterns
     ? argv.patterns.split(",")
     : PRESETS[argv.preset];
+  const patterns = argv.recursive
+    ? basePatterns.map((p) => `**/${p}`)
+    : basePatterns;
   const isDryRun = argv.confirm ? false : argv.dryRun;
 
   console.log(chalk.green(`🧹 clearrr preset: ${argv.preset}`));
-  console.log(chalk.gray(`📂 Searching in: ${dir}`));
+  console.log(
+    chalk.gray(`📂 Searching in: ${dir}${argv.recursive ? " (recursively)" : ""}`)
+  );
   console.log(chalk.gray(`🧩 Patterns: ${patterns.join(",")}`));
   console.log("");
 

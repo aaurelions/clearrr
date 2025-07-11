@@ -116,6 +116,7 @@ npx clearrr . --patterns="node_modules,dist,build,.cache" --confirm
 | `--patterns` | Override preset with custom comma-list | —             |
 | `--dry-run`  | Explicit dry-run                       | `true`        |
 | `--confirm`  | Actually delete matched folders        | `false`       |
+| `--[no-]recursive` | Enable/disable recursive search | `true` |
 
 ---
 

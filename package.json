@@ -1,6 +1,6 @@
 {
   "name": "clearrr",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Effortlessly clear heavy temp folders — safely, fast, and with full control.",
   "main": "index.js",
   "type": "module",
