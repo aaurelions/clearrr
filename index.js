@@ -3,9 +3,11 @@
 import chalk from "chalk";
 import fg from "fast-glob";
 import { rmSync } from "fs";
+import { readdir, stat } from "fs/promises";
 import getFolderSize from "get-folder-size";
+import ora from "ora";
 import { homedir } from "os";
-import { resolve } from "path";
+import { dirname, join, resolve } from "path";
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
 
@@ -119,19 +121,48 @@ const PRESETS = {
   ],
 };
 
+// --- Command Definitions ---
 const argv = yargs(hideBin(process.argv))
-  .usage("Usage: $0 [command] [dir] [options]")
+  .usage("Usage: clearrr [command]")
   .command(
     "$0 [dir]",
-    "Clean project dependencies and build artifacts in a directory",
+    "Clean project artifacts in a directory",
     (yargs) => {
       yargs.positional("dir", {
-        describe: "Root folder to scan",
+        describe: "Root folder to scan for project files",
         default: ".",
       });
-    }
+    },
+    (argv) => main(argv) // Route to the original main function
   )
-  .command("cache", "Clean common cache directories in your home folder (~/)")
+  .command(
+    "cache",
+    "Clean common cache directories in your home folder (~/)",
+    () => {},
+    (argv) => main(argv) // Also route to the original main function
+  )
+  .command(
+    "large <type> [dir] [count]",
+    "Find the largest files or folders",
+    (yargs) => {
+      yargs
+        .positional("type", {
+          describe: "The type of item to search for",
+          choices: ["files", "folders"],
+        })
+        .positional("dir", {
+          describe: "The directory to scan",
+          type: "string",
+          default: ".",
+        })
+        .positional("count", {
+          describe: "The number of items to list",
+          type: "number",
+          default: 10,
+        });
+    },
+    (argv) => handleLargeCommand(argv)
+  )
   .option("preset", {
     describe: "Preset for folders to delete",
     choices: ["node", "python", "php", "rust", "all"],
@@ -142,7 +173,8 @@ const argv = yargs(hideBin(process.argv))
     type: "string",
   })
   .option("dry-run", {
-    describe: "List files that would be deleted without actually deleting them",
+    describe:
+      "List folders that would be deleted without actually deleting them",
     type: "boolean",
     default: true,
   })
@@ -156,15 +188,135 @@ const argv = yargs(hideBin(process.argv))
     type: "boolean",
     default: true,
   })
-  .demandCommand(
-    0,
-    1,
-    "You must specify a command: either a directory or 'cache'."
-  )
+  .demandCommand(1, "You must provide a valid command.")
   .help().argv;
 
-async function main() {
-  const command = argv._[0];
+// --- New Handler for the 'large' command ---
+async function handleLargeCommand(argv) {
+  const targetDir = resolve(process.cwd(), argv.dir);
+  console.log(
+    chalk.green(
+      `🔎 Finding the ${argv.count} largest ${argv.type} in ${chalk.bold(
+        targetDir
+      )}`
+    )
+  );
+  console.log(chalk.gray("This may take a few moments..."));
+
+  // Find a large pool of items to ensure we have enough candidates
+  // after the filtering process.
+  const sampleSize = argv.count * 10;
+  const topItems = [];
+  const spinner = ora("Scanning directories...").start();
+
+  function updateTopItems(newItem) {
+    if (topItems.length < sampleSize) {
+      topItems.push(newItem);
+      topItems.sort((a, b) => b.size - a.size);
+    } else {
+      const smallestInTop = topItems[sampleSize - 1];
+      if (newItem.size > smallestInTop.size) {
+        topItems.pop();
+        topItems.push(newItem);
+        topItems.sort((a, b) => b.size - a.size);
+      }
+    }
+  }
+
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch (err) {
+      return; // Ignore permission errors
+    }
+
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (argv.type === "folders") {
+          try {
+            const size = await getFolderSize.loose(fullPath);
+            updateTopItems({ path: fullPath, size });
+          } catch (err) {}
+        }
+        // Exclude common cache/artifact folders from deep scans for performance
+        if (
+          !entry.name.includes("node_modules") &&
+          !entry.name.includes(".git")
+        ) {
+          await walk(fullPath);
+        }
+      } else if (entry.isFile() && argv.type === "files") {
+        try {
+          const stats = await stat(fullPath);
+          updateTopItems({ path: fullPath, size: stats.size });
+        } catch (err) {}
+      }
+    }
+  }
+
+  await walk(targetDir);
+  spinner.succeed("Scan complete. Filtering for the most specific paths...");
+
+  let finalTopItems = topItems;
+
+  if (argv.type === "folders" && topItems.length > 0) {
+    // If a child folder is 80% or more of its parent's size,
+    // we consider the parent redundant and will hide it from the list.
+    const SIMILARITY_THRESHOLD = 0.8;
+
+    const itemMap = new Map(topItems.map((item) => [item.path, item]));
+    const pathsToKeep = new Set(topItems.map((item) => item.path));
+
+    // Iterate through all found items to check for redundancy
+    for (const item of topItems) {
+      const parentPath = dirname(item.path);
+
+      // Check if this item's parent is also in our list of large folders
+      if (itemMap.has(parentPath)) {
+        const parentItem = itemMap.get(parentPath);
+
+        // If the child's size is a huge portion of the parent's size,
+        // the parent path is not informative. Mark it for removal.
+        if (item.size / parentItem.size > SIMILARITY_THRESHOLD) {
+          pathsToKeep.delete(parentPath);
+        }
+      }
+    }
+
+    // Filter the original list to get our final, informative results
+    // and then slice to the desired count.
+    finalTopItems = topItems
+      .filter((item) => pathsToKeep.has(item.path))
+      .slice(0, argv.count);
+  } else {
+    // For files, or if no folders were found, just take the top N
+    finalTopItems = topItems.slice(0, argv.count);
+  }
+
+  console.log("");
+
+  if (finalTopItems.length === 0) {
+    console.log(chalk.blue("✨ No items found."));
+    return;
+  }
+
+  console.log(
+    chalk.underline(`Top ${finalTopItems.length} largest ${argv.type}:`)
+  );
+  finalTopItems.forEach((item) => {
+    console.log(
+      `${chalk.yellow(formatBytes(item.size).padEnd(10))} ${chalk.cyan(
+        item.path
+      )}`
+    );
+  });
+}
+
+// --- Original Main Function (for cleaning) ---
+async function main(argv) {
+  const command = argv._[0] === "cache" ? "cache" : "project";
   const isCacheMode = command === "cache";
 
   const dir = isCacheMode ? homedir() : resolve(process.cwd(), argv.dir || ".");
@@ -174,7 +326,6 @@ async function main() {
     ? argv.patterns.split(",")
     : PRESETS[presetKey];
 
-  // In project mode, search recursively. In cache mode, paths are absolute from home.
   const patterns =
     !isCacheMode && argv.recursive
       ? basePatterns.map((p) => `**/${p}`)
@@ -200,13 +351,12 @@ async function main() {
   const entries = await fg(patterns, {
     cwd: dir,
     onlyDirectories: true,
-    deep: isCacheMode ? 5 : Infinity, // Limit depth for safety in home dir
+    deep: isCacheMode ? 5 : Infinity,
     ignore: ["**/node_modules/.bin/**", "**/.git/**"],
     absolute: true,
     followSymbolicLinks: false,
   });
 
-  // Sort by path length to ensure parents are processed first, then filter out children.
   const sortedEntries = entries.sort((a, b) => a.length - b.length);
   const uniqueEntries = [];
   for (const entry of sortedEntries) {
@@ -269,8 +419,3 @@ function formatBytes(bytes, decimals = 2) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 }
-
-main().catch((err) => {
-  console.error(chalk.red(err));
-  process.exit(1);
-});
